@@ -8,7 +8,7 @@ class LogFile:
 	and helps to see if there are any error while running
 	"""
 
-	def __init__(self, FileLocation: str = os.getcwd(), FileName: str = "logFile"):
+	def __init__(self, FileLocation: str, FileName: str = "logFile"):
 		"""
 		File log initilization, creates and write down the first line on file ( Log file creation)
 		and initilizaed line counter
@@ -16,8 +16,7 @@ class LogFile:
 		:param str FileName: File name dafault:logFile with timestamp format yyyy-mm-dd_hh:mm:ss
 		:returns FileLog Object
 		"""
-		self.FilePath = FileLocation + '/Data/'
-		# {dt.strftime(dt.today(), '%Y%m%d_%H%M%S')}
+		self.FilePath = FileLocation
 		self.FileName = str(f"{FileName}.txt")
 		self.FileLine = 1
 		self.write_to_file("Log File Creation")
@@ -29,9 +28,14 @@ class LogFile:
 		:return: None
 		"""
 		try:
-			with open(os.path.join(self.FilePath, self.FileName), "a+") as file:
-				file.write(f"|Line|:{self.FileLine}.....|Message|:{Message}.....|on|:{dt.now()}\n")
-				self.counter_increment()
+			if os.path.exists(os.path.join(self.FilePath, self.FileName)):
+				with open(os.path.join(self.FilePath, self.FileName), "a") as file:
+					file.writelines(f"|Line|:{self.FileLine}.....|Message|:{Message}.....|on|:{dt.now()}\n")
+					self.counter_increment()
+			else:
+				with open(os.path.join(self.FilePath, self.FileName), "w") as file:
+					file.writelines(f"|Line|:{self.FileLine}.....|Message|:{Message}.....|on|:{dt.now()}\n")
+					self.counter_increment()
 		except Exception as e:
 			print(str(e))
 
@@ -54,4 +58,8 @@ class LogFile:
 	# 	self.FileLine = self.FileLine + 1
 
 	def counter_increment(self, increment=1):
+		"""
+		Increment line number on file log interaction
+		:return: int
+		"""
 		self.FileLine = self.FileLine + increment

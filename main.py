@@ -2,7 +2,8 @@ import os.path
 import pandas as pd
 import Logs as lg
 
-logFile = lg.LogFile(FileLocation=os.getcwd())
+# Default data directory to read and write data
+workingDirectory = os.path.join(os.getcwd(), "Data")
 
 
 def clean_all_files(path: str, filesName: list = None):
@@ -31,10 +32,11 @@ def main():
 	"""
 	trainSet = read_data(fileName="train.csv")
 	testSet = read_data(fileName="test.csv")
+	print(trainSet)
+	print(testSet)
 
 
-def read_data(path: str = os.getcwd(), folderName: str = "Data", fileName: str = "train.csv") \
-		-> pd.DataFrame:
+def read_data(path: str = workingDirectory, fileName: str = "train.csv") -> pd.DataFrame:
 	"""
 	Given a path, folderName and fileName with extension type, return a pd.dataframe with the data
 	:param path: default is current working directory
@@ -44,18 +46,21 @@ def read_data(path: str = os.getcwd(), folderName: str = "Data", fileName: str =
 	"""
 	result = pd.DataFrame.empty
 	if fileName.split(".")[1] in ('csv', 'txt'):
-		result = pd.read_csv(os.path.join(path, folderName, fileName))
+		result = pd.read_csv(os.path.join(path, fileName))
+		logFile.write_to_file(f"File {fileName} reading Done")
 	else:
+		logFile.write_to_file(f"File {fileName} error: File format not allowed")
 		raise TypeError("File format not allowed")
-	logFile.write_to_file(f"File {fileName} error: File format not allowed")
 
 	return result
 
 
-if __name__ == "__main__":
-	clean_all_files(path="C:\\Users\\henry\\Documents\\Bishops class\\3rd Semester\\CS-590 Masters Project\\Challege 1 - "
-	                     "Data Mining - Dr. Layachi Bentabet\\DataMiningProject\\Prueba""",
-	                filesName=["logFile.txt"])
+# cleaning all the information in case it already exists
+clean_all_files(path=workingDirectory, filesName=["logFile.txt"])
 
-	# logFile.write_to_file(Message="Starting Analysis")
-	# main()
+logFile = lg.LogFile(FileLocation=workingDirectory)
+
+
+if __name__ == "__main__":
+	logFile.write_to_file(f"Starting Analysis")
+	main()
