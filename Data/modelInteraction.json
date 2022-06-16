@@ -1,0 +1,148 @@
+{"Models": [
+  {
+      "id": 1,
+      "Name": "Naive Bayes",
+      "Type": "Gaussian"
+  },
+  {
+      "id": 2,
+      "Name": "Decision tree",
+      "Type": "Decision tree"
+  },
+    {
+      "id": 3,
+      "Name": "KNeighborsClassifier",
+      "Type": "KNN",
+      "KNeighbors": 2
+  },
+    {
+      "id": 4,
+      "Name": "KNeighborsClassifier",
+      "Type": "KNN",
+      "KNeighbors": 3
+  },
+    {
+      "id": 5,
+      "Name": "KNeighborsClassifier",
+      "Type": "KNN",
+      "KNeighbors": 4
+  },
+    {
+      "id": 6,
+      "Name": "neural_network",
+      "Type": "MLPClassifier"
+  }
+],
+  "Feature Method Selection": [
+    {
+      "Id": 1,
+      "Name": "f_classif",
+      "Description": "Compute the ANOVA F-value for the provided sample"
+    },
+    {
+      "Id": 2,
+      "Name": "mutual_info_classif",
+      "Description": "Estimate mutual information for a discrete target variable"
+    },
+    {
+      "Id": 3,
+      "Name": "chi2",
+      "Description": "Compute chi-squared stats between each non-negative feature and class"
+    }
+  ],
+  "Top N Genes": [
+    {
+      "Id": 1,
+      "Name": "Top 2",
+      "Value": 2
+    },
+    {
+      "Id": 2,
+      "Name": "Top 4",
+      "Value": 4
+    },
+    {
+      "Id": 3,
+      "Name": "Top 6",
+      "Value": 6
+    },
+    {
+      "Id": 4,
+      "Name": "Top 8",
+      "Value": 8
+    },
+    {
+      "Id": 5,
+      "Name": "Top 10",
+      "Value": 10
+    },
+    {
+      "Id": 6,
+      "Name": "Top 12",
+      "Value": 12
+    },
+    {
+      "Id": 7,
+      "Name": "Top 15",
+      "Value": 15
+    },
+    {
+      "Id": 8,
+      "Name": "Top 20",
+      "Value": 20
+    },
+    {
+      "Id": 9,
+      "Name": "Top 25",
+      "Value": 25
+    },
+    {
+      "Id": 10,
+      "Name": "Top 30",
+      "Value": 30
+    }
+  ],
+  "Feature Properties": [
+    {
+      "Id": 1,
+      "Name": "Lower Limit",
+      "Value": 20
+    },
+    {
+      "Id": 2,
+      "Name": "Higher Limit",
+      "Value": 16000
+    },
+    {
+      "Id": 3,
+      "Name": "Fold Difference Limit",
+      "Value": 2
+    }
+  ],
+  "Files": [
+    {
+      "Id": 1,
+      "Name": "Train",
+      "File Name": "train",
+      "Format": "csv",
+      "Location": "/Data",
+      "Current": "True"
+    },
+    {
+      "Id": 2,
+      "Name": "Test",
+      "File Name": "test",
+      "Format": "csv",
+      "Location": "/Data",
+      "Current": "True"
+    },
+    {
+      "Id": 3,
+      "Name": "Class",
+      "File Name": "Class",
+      "Format": "txt",
+      "Location": "/Data",
+      "Current": "True"
+    }
+  ]
+}

@@ -50,13 +50,6 @@ class LogFile:
 		except Exception as e:
 			print(str(e))
 
-	# def counter_increment(self):
-	# 	"""
-	# 	Increment line number on file log interaction
-	# 	:return: int
-	# 	"""
-	# 	self.FileLine = self.FileLine + 1
-
 	def counter_increment(self, increment=1):
 		"""
 		Increment line number on file log interaction
