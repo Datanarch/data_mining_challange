@@ -1,6 +1,10 @@
 import os.path
-
+from sklearn.naive_bayes import GaussianNB, CategoricalNB
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_validate
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 
 import Logs as lg
 import time
@@ -16,14 +20,16 @@ from sklearn.feature_selection import SelectKBest, mutual_info_classif, chi2, f_
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+from scipy.stats import ttest_ind
+
 # loading project json configuration file
 
 
 def get_json_values(**args):
 	value = ''
 	files = json.load(open(os.path.join(root_path, args['jsonFile'])))[args['root']]
-
-	if args['root'] == "Files" and args['Name'] is None:
+	NonFileName = [True if args.get('Name') is None else False]
+	if args['root'] == "Files" and args.get('Name') is None:
 		value = [os.getcwd() +'//'+ f['File Name']+'.'+f['Format'] if f['Current'] else f['Location'] +'//'+ f['File Name']+'.'+f[
 		'Format'] for f in [file for file in files] if f['File Name'] == args['Value']][0]
 
@@ -45,6 +51,7 @@ def get_json_values(**args):
 
 	else:
 		raise TypeError("Value not supported")
+
 	return value
 
 
@@ -103,11 +110,14 @@ def main():
 	testSet = read_data(fileName=get_json_values(jsonFile='modelInteraction.Json', root='Files', Name='GetName',
 	 	                                              Value='test'))
 
-	print(classSet.head(10))
+	trainSet = data_threshold(data=trainSet, loweLimit=lowerLimit, HighLimit=higherLimit)
+	trainSet = data_fold(data=trainSet, foldLimit=foldLimit)
+
+	# print(classSet.head(10))
 	print(trainSet.head(10))
-	print(testSet.head(10))
-	print(get_json_values(jsonFile='modelInteraction.Json', root='Files', Value='test'))
-	print(get_json_values(jsonFile='modelInteraction.Json', root='Models', Value='Type'))
+	# print(testSet.head(10))
+	# print(get_json_values(jsonFile='modelInteraction.Json', root='Files', Name='GetName', Value='train'))
+	# print(get_json_values(jsonFile='modelInteraction.Json', root='Models', Value='Type'))
 
 	# # setting up columns on training set and test set with classSet
 	# print(trainSet)
@@ -212,7 +222,6 @@ def psi_index(X, normalize=False):
 
 def method_selection_function(**args):
 	"""
-
 	:param args:
 	:return:
 	"""
@@ -245,7 +254,7 @@ def select_features(**args):
 
 def data_threshold(data, loweLimit, HighLimit):
 	trainSet = data.copy(deep=True)
-	tdata = data.to_numpy(copy=True)
+	data = data.to_numpy(copy=True)
 	# Loop over genes with all samples to find the index of genes that do not have enough high or low limit
 	genes_to_delete = [idx for idx, genes_row in enumerate(data.T) if np.max(genes_row[1:]) < loweLimit or np.min(
 		genes_row[1:]) > HighLimit]
@@ -356,6 +365,113 @@ def plotting_values_result():
 
 	print("Displaying feature selection result according to score")
 	print(featureSelectionResult)
+
+
+def Model_Selection(**args):
+	selector = None
+	if args['Model'] == 'Gaussian':
+		selector = GaussianNB()
+	if args['Model'] == 'Decision tree':
+		selector = DecisionTreeClassifier()
+	if args['Model'] == 'KNN':
+		selector = KNeighborsClassifier(n_neighbors=args['K'])
+	if args['Model'] == 'MLPClassifier':
+		selector = MLPClassifier(solver='lbfgs', random_state=1)
+	return selector.fit(X=args['X'], y=args['y'])
+
+# ModelParam = json.load(open(os.path.join(root_path,'modelInteraction.json')))
+# X_train, X_test, y_train, y_test = train_test_split(trainSet[columnsToWorkWith], classSet['Class'], test_size=0.2, random_state=0)
+# for model in ModelParam['Models']:
+# 	for index,row in featureSelectionResult.iterrows():
+# 		try:
+# 			est = None
+# 			# developing cross validation method per model with top feature selection\n",
+# 			if model.get('KNeighbors') is None:
+# 				est = Model_Selection( Model=model['Type'],
+# 				                       X=X_train[np.intersect1d(X_train.columns, row['ColumFeatures']) ],
+# 				                       y=y_train
+# 				                       )
+# 			else:
+# 				est = Model_Selection(Model=model['Type'],
+# 				                      X=X_train[np.intersect1d(X_train.columns, row['ColumFeatures']) ],
+# 				                      y=y_train,
+# 				                      K=model['KNeighbors']
+# 				                      )
+# 			selector = cross_validate(estimator= est,
+# 			                          X=X_test[np.intersect1d(X_test.columns,
+# 			                                                  row['ColumFeatures']) ],
+# 			                          y=y_test
+# 										#,return_train_score=True\n",
+# 									)
+# 			modelScored = pd.DataFrame.append(modelScored, {
+# 				'FeatureSelected': row['ColumFeatures'],
+# 				'TopFeatureType': row['TopType'],
+# 				'FeatureClassType': row['ClassificationType'],
+# 				'ModelSelection': model['Type'] if model['Type'] !=  'KNN' else model['Type']+"-K="+str(model['KNeighbors']),
+# 				'ModelScored' : selector['test_score'].mean()*100
+# 			}, ignore_index=True)
+# 		except Exception as ex:
+# 			print(str(ex))
+
+def top_Classes(classes):
+	le = LabelEncoder()
+	classes = le.fit_transform(classes)
+	total_t_result = []
+	for cls in range(len(set(classes))):
+	# display(f'T-test on Class: {le.inverse_transform((cls,))[0]}')
+		cls_t_result = []
+		# Get indices of classes
+		samp = np.where(classes == cls)[0] + 1#np.where(classes == cls)[0]
+		# Take the first gene for t test
+		for gene_0 in range(train.shape[1]):
+			if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
+				continue
+		# Calculate t and p values when testing with all the remaining genes
+			for gene_1 in range(gene_0 +1 , train.shape[1]):
+				if np.any(train[1:, gene_1] < lowerLimit) or np.any(train[1:, gene_1] > higherLimit):
+					continue
+				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
+				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
+				                     gene_1, t_value, p_value))
+		total_t_result.append(cls_t_result)
+	top_n_values = {}
+	for n in topClassGenesPair:
+		# Placeholder for top genes in max n gene
+		n_train_list = []
+		# Loop over results and classes
+		total_indices = []
+		for encoded_class, cls_t_result in enumerate(total_t_result):
+	"\t\tindices_list = []\n",
+	"\t\tcls_t_result = np.array(sorted(cls_t_result, key=lambda x: np.abs(float(x[5])), reverse=True))\n",
+	"\t\tfor ind_0, ind_1 in cls_t_result[:, [2, 4]]:\n",
+	"\t\t\tif int(ind_0) not in indices_list and int(ind_0) not in total_indices:\n",
+	"\t\t\t\tindices_list.append(int(ind_0))\n",
+	"\t\t\t\ttotal_indices.append(int(ind_0))\n",
+	"\t\t\tif len(indices_list) == n:\n",
+	"\t\t\t\tbreak\n",
+	"\t\t\tif int(ind_1) not in indices_list and int(ind_1) not in total_indices:\n",
+	"\t\t\t\tindices_list.append(int(ind_1))\n",
+	"\t\t\t\ttotal_indices.append(int(ind_1))\n",
+	"\t\t\tif len(indices_list) == n:\n",
+	"\t\t\t\tbreak\n",
+	"\t\tindices_list = list(train[0, indices_list])\n",
+	"\t\tindices_list.append(le.inverse_transform((encoded_class,))[0])\n",
+	"\tn_train_list.append(train[:, total_indices])\n",
+	"\tn_train_list = np.concatenate(n_train_list, axis=1)\n",
+	"\tcls_col =  ['Classes'] +list(np.squeeze(le.inverse_transform(np.sort(classes)).reshape((-1, 1))))\n",
+	"\tn_train_list = np.concatenate((n_train_list, np.array(cls_col)[:, np.newaxis]), axis=1)\n",
+	"\ttop_n_values[n] = n_train_list\n",
+	"\n",
+	"for n in top_n_values.keys():\n",
+	"\tmodelsToProcess = modelsToProcess.append({'ModelSelection':'Top File Classes',\n",
+	"\t\t\t\t\t\t   'TopFeatureType': f\"Top {n}\",\n",
+	"\t\t\t\t\t\t   'FeatureClassType':'File Class',\n",
+	"\t'FeatureSelected':list(set([n for n in top_n_values[n][0] if n!= 'Classes']))}, ignore_index=True)\n",
+	"\n",
+	"modelsToProcess['FeatureSelected'] = modelsToProcess.apply(lambda row:list(set(str(row['FeatureSelected']).replace('[','').replace(']','').replace(\"'\",\"\").replace(' ','').split(','))), axis=1)\n",
+	"\n",
+	"\n",
+	"display(modelsToProcess)\n"
 
 
 if __name__ == "__main__":

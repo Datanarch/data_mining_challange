@@ -130,7 +130,7 @@
     },
     {
       "Id": 2,
-      "Name": "Test",
+      "Name": "test",
       "File Name": "test",
       "Format": "csv",
       "Location": "/Data",
