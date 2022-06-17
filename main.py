@@ -22,9 +22,6 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from scipy.stats import ttest_ind
 
-# loading project json configuration file
-
-
 def get_json_values(**args):
 	value = ''
 	files = json.load(open(os.path.join(root_path, args['jsonFile'])))[args['root']]
@@ -55,28 +52,39 @@ def get_json_values(**args):
 	return value
 
 
+# Top Genes classes
+	topClassGenesPair = get_json_values(jsonFile='modelInteraction.Json', root='Top N Genes', value='Value')
+
+	# # Some feature Properties to load first
+	# FeatureProperties = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties')
+	higherLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Higher Limit',
+	                              Value='Value')
+	lowerLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Lower Limit',
+	                             Value='Value')
+
+	foldLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties',
+	                            Name='Fold Difference Limit',
+	                            Value='Value')
+
+# loading project json configuration file
 root_path = os.path.join(os.curdir, "Data")
+
+# methodsSelection = [method['Name'] for method in mets]
 
 # Top Genes classes
 topClassGenesPair = get_json_values(jsonFile='modelInteraction.Json', root='Top N Genes', value='Value')
-	# [int(Gen['Value']) for Gen in json.load(open(os.path.join(root_path, 'modelInteraction.json')))[
-	# 'Top N Genes']]
 
 # # Some feature Properties to load first
 # FeatureProperties = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties')
 higherLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Higher Limit',
-                              Value='Value')
+	                              Value='Value')
+
 lowerLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Lower Limit',
-                              Value='Value')
+	                             Value='Value')
 
-foldLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Fold Difference Limit',
-                              Value='Value')
-
-
-# methods feature selection to use
-mets = get_json_values(jsonFile='modelInteraction.Json', root='Feature Method Selection', Value='Name')
-
-# methodsSelection = [method['Name'] for method in mets]
+foldLimit = get_json_values(jsonFile='modelInteraction.Json', root='Feature Properties', Name='Fold Difference '
+	                                                                                              'Limit',
+	                            Value='Value')
 
 
 def clean_all_files(path: str, filesName: list = None):
@@ -111,16 +119,10 @@ def main():
 	 	                                              Value='test'))
 
 	trainSet = data_threshold(data=trainSet, loweLimit=lowerLimit, HighLimit=higherLimit)
-	trainSet = data_fold(data=trainSet, foldLimit=foldLimit)
+	trainSet = remove_fold(data=trainSet)
+	trainSet = calculate_T_Value(data=trainSet,classSet=classSet, safeToFile=True)
 
-	# print(classSet.head(10))
 	print(trainSet.head(10))
-	# print(testSet.head(10))
-	# print(get_json_values(jsonFile='modelInteraction.Json', root='Files', Name='GetName', Value='train'))
-	# print(get_json_values(jsonFile='modelInteraction.Json', root='Models', Value='Type'))
-
-	# # setting up columns on training set and test set with classSet
-	# print(trainSet)
 
 
 def read_data(path: str = root_path, fileName: str = "train.csv") -> pd.DataFrame:
@@ -252,27 +254,65 @@ def select_features(**args):
 	return X_train_fs, X_test_fs, fs
 
 
-def data_threshold(data, loweLimit, HighLimit):
+def data_threshold(data: pd.DataFrame, loweLimit: int = lowerLimit, HighLimit: int = higherLimit) -> pd.DataFrame:
+	"""
+	given the data, lower and higher limit, will delete the columns that go beyond given limits
+	:param data: Dataframe data
+	:param loweLimit: int with lower limit
+	:param HighLimit: int wiht high limit
+	:return: dataframe without lower and higher limits
+	"""
 	trainSet = data.copy(deep=True)
 	data = data.to_numpy(copy=True)
 	# Loop over genes with all samples to find the index of genes that do not have enough high or low limit
 	genes_to_delete = [idx for idx, genes_row in enumerate(data.T) if np.max(genes_row[1:]) < loweLimit or np.min(
 		genes_row[1:]) > HighLimit]
-			# Deleting columns
+	# Deleting columns
 	trainSet = trainSet[np.setxor1d(trainSet.columns, trainSet.columns[genes_to_delete])]
 	return trainSet
 
 
-def data_fold(data, foldLimit):
-	trainSet = data.copy(deep=True)
-	data = data.to_numpy(copy=True)
-	# Loop over genes with all samples to find the index of genes that do not have enough fold
-	genes_to_delete = [idx for idx, genes_row in enumerate(data.T)
-				if np.max(genes_row[1:]) < foldLimit * np.min(genes_row[1:])]
+def calculate_T_Value(data: pd.DataFrame, classSet: pd.DataFrame, safeToFile: bool = False) -> pd.DataFrame:
+	le = LabelEncoder()
+	train = data.to_numpy()[:, :]
+	classes = classSet['Class'].values
+	encoder = le.fit_transform(classSet['Class'])
+	# Placeholder for all class individual t test result
+	total_t_result = []
+	print(f'T-test Started on {len(set(classes))} class with {train.shape[1]} genes.\n')
+	# Loop over all classes
+	for cls in range(len(set(encoder))):
+		print(f'T-test on Class: {le.inverse_transform((cls,))[0]}')
+		# Append class-based results in other list
+		cls_t_result = []
+		# Get indices of classes
+		samp = np.where(encoder == cls)[0] + 1
+		# Take the first gene for t test
+		for gene_0 in range(train.shape[1]):
+			# Calculate t and p values when testing with all the remaining genes
+			for gene_1 in range(gene_0 + 1, train.shape[1]):
+				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
+				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
+				                     gene_1, t_value, p_value))
+				total_t_result.append(cls_t_result)
 
-	# Deleting columns\n",
-	trainSet = trainSet[np.setxor1d(trainSet.columns, trainSet.columns[genes_to_delete])]
-	return trainSet
+	# If desired, save these results in an additional file
+		cols = ['Class', 'Gene 1', 'Indices of Gene 1', 'Gene 2', 'Indices of Gene 2', 't-value', 'p-value']
+		data = np.squeeze(np.array(total_t_result).reshape((1, -1, 7)))
+		df = pd.DataFrame(data, columns=cols)
+		if safeToFile:
+			path = os.path.join(root_path, "pp5i_t_result.gr.csv")
+			df.to_csv(path, index=False)
+	print('\nT-test completed!')
+
+	return df
+
+
+# def top_N_Values():
+# 	for n in topClassGenesPair:
+# 		n_train_list = []
+# 		total_indices = []
+# 		for encoded_class, cls_t_result in enumerate(t_test_result):
 
 
 def plotting_values_result():
@@ -413,65 +453,90 @@ def Model_Selection(**args):
 # 		except Exception as ex:
 # 			print(str(ex))
 
-def top_Classes(classes):
-	le = LabelEncoder()
-	classes = le.fit_transform(classes)
-	total_t_result = []
-	for cls in range(len(set(classes))):
-	# display(f'T-test on Class: {le.inverse_transform((cls,))[0]}')
-		cls_t_result = []
-		# Get indices of classes
-		samp = np.where(classes == cls)[0] + 1#np.where(classes == cls)[0]
-		# Take the first gene for t test
-		for gene_0 in range(train.shape[1]):
-			if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
-				continue
-		# Calculate t and p values when testing with all the remaining genes
-			for gene_1 in range(gene_0 +1 , train.shape[1]):
-				if np.any(train[1:, gene_1] < lowerLimit) or np.any(train[1:, gene_1] > higherLimit):
-					continue
-				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
-				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
-				                     gene_1, t_value, p_value))
-		total_t_result.append(cls_t_result)
-	top_n_values = {}
-	for n in topClassGenesPair:
-		# Placeholder for top genes in max n gene
-		n_train_list = []
-		# Loop over results and classes
-		total_indices = []
-		for encoded_class, cls_t_result in enumerate(total_t_result):
-	"\t\tindices_list = []\n",
-	"\t\tcls_t_result = np.array(sorted(cls_t_result, key=lambda x: np.abs(float(x[5])), reverse=True))\n",
-	"\t\tfor ind_0, ind_1 in cls_t_result[:, [2, 4]]:\n",
-	"\t\t\tif int(ind_0) not in indices_list and int(ind_0) not in total_indices:\n",
-	"\t\t\t\tindices_list.append(int(ind_0))\n",
-	"\t\t\t\ttotal_indices.append(int(ind_0))\n",
-	"\t\t\tif len(indices_list) == n:\n",
-	"\t\t\t\tbreak\n",
-	"\t\t\tif int(ind_1) not in indices_list and int(ind_1) not in total_indices:\n",
-	"\t\t\t\tindices_list.append(int(ind_1))\n",
-	"\t\t\t\ttotal_indices.append(int(ind_1))\n",
-	"\t\t\tif len(indices_list) == n:\n",
-	"\t\t\t\tbreak\n",
-	"\t\tindices_list = list(train[0, indices_list])\n",
-	"\t\tindices_list.append(le.inverse_transform((encoded_class,))[0])\n",
-	"\tn_train_list.append(train[:, total_indices])\n",
-	"\tn_train_list = np.concatenate(n_train_list, axis=1)\n",
-	"\tcls_col =  ['Classes'] +list(np.squeeze(le.inverse_transform(np.sort(classes)).reshape((-1, 1))))\n",
-	"\tn_train_list = np.concatenate((n_train_list, np.array(cls_col)[:, np.newaxis]), axis=1)\n",
-	"\ttop_n_values[n] = n_train_list\n",
-	"\n",
-	"for n in top_n_values.keys():\n",
-	"\tmodelsToProcess = modelsToProcess.append({'ModelSelection':'Top File Classes',\n",
-	"\t\t\t\t\t\t   'TopFeatureType': f\"Top {n}\",\n",
-	"\t\t\t\t\t\t   'FeatureClassType':'File Class',\n",
-	"\t'FeatureSelected':list(set([n for n in top_n_values[n][0] if n!= 'Classes']))}, ignore_index=True)\n",
-	"\n",
-	"modelsToProcess['FeatureSelected'] = modelsToProcess.apply(lambda row:list(set(str(row['FeatureSelected']).replace('[','').replace(']','').replace(\"'\",\"\").replace(' ','').split(','))), axis=1)\n",
-	"\n",
-	"\n",
-	"display(modelsToProcess)\n"
+# def top_Classes(classes):
+# 	le = LabelEncoder()
+# 	classes = le.fit_transform(classes)
+# 	total_t_result = []
+# 	for cls in range(len(set(classes))):
+# 	# display(f'T-test on Class: {le.inverse_transform((cls,))[0]}')
+# 		cls_t_result = []
+# 		# Get indices of classes
+# 		samp = np.where(classes == cls)[0] + 1#np.where(classes == cls)[0]
+# 		# Take the first gene for t test
+# 		for gene_0 in range(train.shape[1]):
+# 			if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
+# 				continue
+# 		# Calculate t and p values when testing with all the remaining genes
+# 			for gene_1 in range(gene_0 +1 , train.shape[1]):
+# 				if np.any(train[1:, gene_1] < lowerLimit) or np.any(train[1:, gene_1] > higherLimit):
+# 					continue
+# 				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
+# 				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
+# 				                     gene_1, t_value, p_value))
+# 		total_t_result.append(cls_t_result)
+# 	top_n_values = {}
+# 	for n in topClassGenesPair:
+# 		# Placeholder for top genes in max n gene
+# 		n_train_list = []
+# 		# Loop over results and classes
+# 		total_indices = []
+# 		for encoded_class, cls_t_result in enumerate(total_t_result):
+# 			indices_list = []
+# 			cls_t_result = np.array(sorted(cls_t_result, key=lambda x: np.abs(float(x[5])), reverse=True))
+# 			for ind_0, ind_1 in cls_t_result[:, [2, 4]]:
+# 				if int(ind_0) not in indices_list and int(ind_0) not in total_indices:
+# 					indices_list.append(int(ind_0))
+# 					total_indices.append(int(ind_0))
+# 				if len(indices_list) == n:
+# 					break
+# 				if int(ind_1) not in indices_list and int(ind_1) not in total_indices:
+# 					indices_list.append(int(ind_1))
+# 					total_indices.append(int(ind_1))
+# 				if len(indices_list) == n:
+# 					break
+# 	"\t\tindices_list = list(train[0, indices_list])\n",
+# 	"\t\tindices_list.append(le.inverse_transform((encoded_class,))[0])\n",
+# 	"\tn_train_list.append(train[:, total_indices])\n",
+# 	"\tn_train_list = np.concatenate(n_train_list, axis=1)\n",
+# 	"\tcls_col =  ['Classes'] +list(np.squeeze(le.inverse_transform(np.sort(classes)).reshape((-1, 1))))\n",
+# 	"\tn_train_list = np.concatenate((n_train_list, np.array(cls_col)[:, np.newaxis]), axis=1)\n",
+# 	"\ttop_n_values[n] = n_train_list\n",
+# 	"\n",
+# 	"for n in top_n_values.keys():\n",
+# 	"\tmodelsToProcess = modelsToProcess.append({'ModelSelection':'Top File Classes',\n",
+# 	"\t\t\t\t\t\t   'TopFeatureType': f\"Top {n}\",\n",
+# 	"\t\t\t\t\t\t   'FeatureClassType':'File Class',\n",
+# 	"\t'FeatureSelected':list(set([n for n in top_n_values[n][0] if n!= 'Classes']))}, ignore_index=True)\n",
+# 	"\n",
+# 	"modelsToProcess['FeatureSelected'] = modelsToProcess.apply(lambda row:list(set(str(row['FeatureSelected']).replace('[','').replace(']','').replace(\"'\",\"\").replace(' ','').split(','))), axis=1)\n",
+# 	"\n",
+# 	"\n",
+# 	"display(modelsToProcess)\n"
+
+
+def remove_fold(data: pd.DataFrame, fold_n: int = foldLimit) -> pd.DataFrame:
+	"""
+	Given a dataframe with data, return dataframe with columns that do not fit the fold number
+	:param data: dataframe data
+	:param fold_n: fold number to look for default: foldLimit
+	:return: dataframe without fold columns
+	"""
+	trainSet = data.copy(deep=True)
+	data = data.to_numpy(copy=True)
+	# Loop over genes with all samples to find the index of genes that do not have enough fold
+	genes_to_delete = [idx for idx, genes_row in enumerate(data.T) if np.max(genes_row[1:]) < fold_n * np.min(
+		genes_row[1:])]
+	# Delete gene columns from training and test data
+	trainSet = trainSet[np.setxor1d(trainSet.columns, trainSet.columns[genes_to_delete])]
+
+	return trainSet
+
+
+def low_variance(data: pd.DataFrame, varianceValue: int):
+	to_delete = [idx for idx, genes_row in enumerate(data.T) if np.std(genes_row[1:]) < varianceValue]
+
+	data = data[np.setxor1d(data.columns, data.columns[to_delete])]
+	return data
 
 
 if __name__ == "__main__":
