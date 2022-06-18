@@ -120,7 +120,7 @@ def main():
 
 	trainSet = data_threshold(data=trainSet, loweLimit=lowerLimit, HighLimit=higherLimit)
 	trainSet = remove_fold(data=trainSet)
-	trainSet = calculate_T_Value(data=trainSet,classSet=classSet, safeToFile=True)
+	trainSet = calculate_T_Value(data=trainSet, classSet=classSet, safeToFile=True)
 
 	print(trainSet.head(10))
 
@@ -149,7 +149,7 @@ def read_data(path: str = root_path, fileName: str = "train.csv") -> pd.DataFram
 	return result
 
 
-def skew_classification(skew:float, type:str):
+def skew_classification(skew: float, type: str):
 	"""classify according to the following skew values:
 	Fairly Symmetrical  -0.5 to 0.5
 	Moderate Skewed -0.5 to -1.0 and 0.5 to 1.0
@@ -273,10 +273,17 @@ def data_threshold(data: pd.DataFrame, loweLimit: int = lowerLimit, HighLimit: i
 
 
 def calculate_T_Value(data: pd.DataFrame, classSet: pd.DataFrame, safeToFile: bool = False) -> pd.DataFrame:
-	le = LabelEncoder()
+	"""
+	Calculate the T-value and P-value per column
+	:param data: Dataframe with data
+	:param classSet: Dataframe with colum Class
+	:param safeToFile: True/False to write into file
+	:return: Dataframe with ['Class', 'Gene 1', 'Indices of Gene 1', 'Gene 2', 'Indices of Gene 2', 't-value',
+	'p-value']
+	"""
+	encoder, classes, le = get_encoding(data=classSet, column='Class')
+	df = pd.DataFrame()
 	train = data.to_numpy()[:, :]
-	classes = classSet['Class'].values
-	encoder = le.fit_transform(classSet['Class'])
 	# Placeholder for all class individual t test result
 	total_t_result = []
 	print(f'T-test Started on {len(set(classes))} class with {train.shape[1]} genes.\n')
@@ -289,8 +296,13 @@ def calculate_T_Value(data: pd.DataFrame, classSet: pd.DataFrame, safeToFile: bo
 		samp = np.where(encoder == cls)[0] + 1
 		# Take the first gene for t test
 		for gene_0 in range(train.shape[1]):
+			if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
+				continue
 			# Calculate t and p values when testing with all the remaining genes
 			for gene_1 in range(gene_0 + 1, train.shape[1]):
+				if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
+					continue
+				# Calculate t and p values when testing with all the remaining genes
 				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
 				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
 				                     gene_1, t_value, p_value))
@@ -308,8 +320,8 @@ def calculate_T_Value(data: pd.DataFrame, classSet: pd.DataFrame, safeToFile: bo
 	return df
 
 
-# def top_N_Values():
-# 	for n in topClassGenesPair:
+# def top_N_Values(Data: pd.DataFrame, topN: list = topClassGenesPair):
+# 	for n in topN:
 # 		n_train_list = []
 # 		total_indices = []
 # 		for encoded_class, cls_t_result in enumerate(t_test_result):
@@ -419,100 +431,6 @@ def Model_Selection(**args):
 		selector = MLPClassifier(solver='lbfgs', random_state=1)
 	return selector.fit(X=args['X'], y=args['y'])
 
-# ModelParam = json.load(open(os.path.join(root_path,'modelInteraction.json')))
-# X_train, X_test, y_train, y_test = train_test_split(trainSet[columnsToWorkWith], classSet['Class'], test_size=0.2, random_state=0)
-# for model in ModelParam['Models']:
-# 	for index,row in featureSelectionResult.iterrows():
-# 		try:
-# 			est = None
-# 			# developing cross validation method per model with top feature selection\n",
-# 			if model.get('KNeighbors') is None:
-# 				est = Model_Selection( Model=model['Type'],
-# 				                       X=X_train[np.intersect1d(X_train.columns, row['ColumFeatures']) ],
-# 				                       y=y_train
-# 				                       )
-# 			else:
-# 				est = Model_Selection(Model=model['Type'],
-# 				                      X=X_train[np.intersect1d(X_train.columns, row['ColumFeatures']) ],
-# 				                      y=y_train,
-# 				                      K=model['KNeighbors']
-# 				                      )
-# 			selector = cross_validate(estimator= est,
-# 			                          X=X_test[np.intersect1d(X_test.columns,
-# 			                                                  row['ColumFeatures']) ],
-# 			                          y=y_test
-# 										#,return_train_score=True\n",
-# 									)
-# 			modelScored = pd.DataFrame.append(modelScored, {
-# 				'FeatureSelected': row['ColumFeatures'],
-# 				'TopFeatureType': row['TopType'],
-# 				'FeatureClassType': row['ClassificationType'],
-# 				'ModelSelection': model['Type'] if model['Type'] !=  'KNN' else model['Type']+"-K="+str(model['KNeighbors']),
-# 				'ModelScored' : selector['test_score'].mean()*100
-# 			}, ignore_index=True)
-# 		except Exception as ex:
-# 			print(str(ex))
-
-# def top_Classes(classes):
-# 	le = LabelEncoder()
-# 	classes = le.fit_transform(classes)
-# 	total_t_result = []
-# 	for cls in range(len(set(classes))):
-# 	# display(f'T-test on Class: {le.inverse_transform((cls,))[0]}')
-# 		cls_t_result = []
-# 		# Get indices of classes
-# 		samp = np.where(classes == cls)[0] + 1#np.where(classes == cls)[0]
-# 		# Take the first gene for t test
-# 		for gene_0 in range(train.shape[1]):
-# 			if np.any(train[1:, gene_0] < lowerLimit) or np.any(train[1:, gene_0] > higherLimit):
-# 				continue
-# 		# Calculate t and p values when testing with all the remaining genes
-# 			for gene_1 in range(gene_0 +1 , train.shape[1]):
-# 				if np.any(train[1:, gene_1] < lowerLimit) or np.any(train[1:, gene_1] > higherLimit):
-# 					continue
-# 				t_value, p_value = ttest_ind(train[samp, gene_0], train[samp, gene_1])
-# 				cls_t_result.append((le.inverse_transform((cls,))[0], train[0, gene_0], gene_0, train[0, gene_1],
-# 				                     gene_1, t_value, p_value))
-# 		total_t_result.append(cls_t_result)
-# 	top_n_values = {}
-# 	for n in topClassGenesPair:
-# 		# Placeholder for top genes in max n gene
-# 		n_train_list = []
-# 		# Loop over results and classes
-# 		total_indices = []
-# 		for encoded_class, cls_t_result in enumerate(total_t_result):
-# 			indices_list = []
-# 			cls_t_result = np.array(sorted(cls_t_result, key=lambda x: np.abs(float(x[5])), reverse=True))
-# 			for ind_0, ind_1 in cls_t_result[:, [2, 4]]:
-# 				if int(ind_0) not in indices_list and int(ind_0) not in total_indices:
-# 					indices_list.append(int(ind_0))
-# 					total_indices.append(int(ind_0))
-# 				if len(indices_list) == n:
-# 					break
-# 				if int(ind_1) not in indices_list and int(ind_1) not in total_indices:
-# 					indices_list.append(int(ind_1))
-# 					total_indices.append(int(ind_1))
-# 				if len(indices_list) == n:
-# 					break
-# 	"\t\tindices_list = list(train[0, indices_list])\n",
-# 	"\t\tindices_list.append(le.inverse_transform((encoded_class,))[0])\n",
-# 	"\tn_train_list.append(train[:, total_indices])\n",
-# 	"\tn_train_list = np.concatenate(n_train_list, axis=1)\n",
-# 	"\tcls_col =  ['Classes'] +list(np.squeeze(le.inverse_transform(np.sort(classes)).reshape((-1, 1))))\n",
-# 	"\tn_train_list = np.concatenate((n_train_list, np.array(cls_col)[:, np.newaxis]), axis=1)\n",
-# 	"\ttop_n_values[n] = n_train_list\n",
-# 	"\n",
-# 	"for n in top_n_values.keys():\n",
-# 	"\tmodelsToProcess = modelsToProcess.append({'ModelSelection':'Top File Classes',\n",
-# 	"\t\t\t\t\t\t   'TopFeatureType': f\"Top {n}\",\n",
-# 	"\t\t\t\t\t\t   'FeatureClassType':'File Class',\n",
-# 	"\t'FeatureSelected':list(set([n for n in top_n_values[n][0] if n!= 'Classes']))}, ignore_index=True)\n",
-# 	"\n",
-# 	"modelsToProcess['FeatureSelected'] = modelsToProcess.apply(lambda row:list(set(str(row['FeatureSelected']).replace('[','').replace(']','').replace(\"'\",\"\").replace(' ','').split(','))), axis=1)\n",
-# 	"\n",
-# 	"\n",
-# 	"display(modelsToProcess)\n"
-
 
 def remove_fold(data: pd.DataFrame, fold_n: int = foldLimit) -> pd.DataFrame:
 	"""
@@ -533,10 +451,30 @@ def remove_fold(data: pd.DataFrame, fold_n: int = foldLimit) -> pd.DataFrame:
 
 
 def low_variance(data: pd.DataFrame, varianceValue: int):
+	"""
+	Given the data and min.Variance, will delete the column higher than the given value
+	:param data: Dataframe to look up variance
+	:param varianceValue: max variance
+	:return:data without column with higher variance than given
+	"""
 	to_delete = [idx for idx, genes_row in enumerate(data.T) if np.std(genes_row[1:]) < varianceValue]
 
 	data = data[np.setxor1d(data.columns, data.columns[to_delete])]
 	return data
+
+
+def get_encoding(data: pd.DataFrame, column: str = 'Class'):
+	"""
+	According to a dataframe, return encoder, class and labelEncoder
+	:param data: dataframe with class
+	:param column: column class name to use
+	:return: encoder, class and labelEncoder object
+	"""
+	labelEncoder = LabelEncoder()
+	classes = data[column].values
+	encoder = labelEncoder.fit_transform(data[column])
+
+	return encoder, classes, labelEncoder
 
 
 if __name__ == "__main__":
